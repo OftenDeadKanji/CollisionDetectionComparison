@@ -1,0 +1,264 @@
+﻿using System.Collections.Generic;
+using System.IO;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class SimulationController : MonoBehaviour
+{
+    [Header("Prefabs")]
+    public GameObject galtonAABB;
+    public GameObject ballAABBPrefab;
+    [Space(10)]
+    public GameObject galtonOBB;
+    public GameObject ballOBBPrefab;
+    [Space(10)]
+    public GameObject galtonMesh;
+    public GameObject ballMeshPrefab;
+
+    [Header("UI Components")]
+    public Text fpsUIText;
+    public Text msUIText;
+    public Text timeScaleUIText;
+    public Text ballCountUIText;
+
+    private List<GameObject> ballsList;
+    private int[] ballsCount;
+
+    private float keyCooldown = 0.2f;
+    private float keyCDPassedTime = 0.0f;
+
+    public enum CollisionMode
+    {
+        NONE,
+        MESH,
+        AABB,
+        OBB
+    };
+
+    private CollisionMode mode;
+
+    // Start is called before the first frame update
+    void Start()
+    {
+        ballsList = new List<GameObject>();
+        ballsCount = new int[11];
+        Time.timeScale = 3.0f;
+        timeScaleUIText.text = "pręd: " + Time.timeScale.ToString("0.00");
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        fpsUIText.text = "FPS: " + ((int)(1.0f / Time.deltaTime)).ToString();
+        msUIText.text = "ms: " + (Time.deltaTime * 1000).ToString("0.00");
+
+        keyCDPassedTime += Time.deltaTime;
+        if (keyCDPassedTime >= keyCooldown)
+        {
+            keyCDPassedTime = 0.0f;
+            if (Input.GetKey(KeyCode.F))
+            {
+                SaveResults();
+            }
+            else if (Input.GetKey(KeyCode.Q))
+            {
+                AddNextBalls();
+            }
+            else if (Input.GetKey(KeyCode.Alpha1))
+            {
+                ChangeCollisionMode(CollisionMode.AABB);
+            }
+            else if (Input.GetKey(KeyCode.Alpha2))
+            {
+                ChangeCollisionMode(CollisionMode.OBB);
+            }
+            else if (Input.GetKey(KeyCode.Alpha3))
+            {
+                ChangeCollisionMode(CollisionMode.MESH);
+            }
+            else if (Input.GetKey(KeyCode.KeypadPlus))
+            {
+                IncreaseTimeScale();
+            }
+            else if (Input.GetKey(KeyCode.KeypadMinus))
+            {
+                DecreaseTimeScale();
+            }
+        }
+    }
+
+    public void AddNextBalls()
+    {
+        GameObject ballPrefab = null;
+        switch (mode)
+        {
+            case CollisionMode.AABB:
+                ballPrefab = ballAABBPrefab;
+                break;
+            case CollisionMode.OBB:
+                ballPrefab = ballOBBPrefab;
+                break;
+            case CollisionMode.MESH:
+                ballPrefab = ballMeshPrefab;
+                break;
+        }
+        if (ballPrefab != null)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                for (int j = 0; j < 4; ++j)
+                {
+                    ballsList.Add(Instantiate(ballPrefab, new Vector3(-2.5f + i * (4.7f / 3.0f), 5.0f + j * -(1.0f / 3.0f), 0.073f), Quaternion.identity));
+                }
+            }
+            ballCountUIText.text = "Liczba piłeczek: " + ballsList.Count.ToString();
+        }
+        else
+        {
+            Debug.LogError("No collision mode chosen. Can't instatiate with null prefab.");
+        }
+    }
+
+    private void ChangeActivityOfGaltonBoard(CollisionMode mode, bool activity)
+    {
+        switch (mode)
+        {
+            case CollisionMode.AABB:
+                if (galtonAABB != null)
+                {
+                    galtonAABB.SetActive(activity);
+                }
+                else
+                {
+                    Debug.LogWarning("Couldn't find \"GaltonBoardAABB\" object.");
+                }
+                break;
+            case CollisionMode.OBB:
+                if (galtonOBB != null)
+                {
+                    galtonOBB.SetActive(activity);
+                }
+                else
+                {
+                    Debug.LogWarning("Couldn't find \"GaltonBoardOBB\" object.");
+                }
+                break;
+            case CollisionMode.MESH:
+                if (galtonMesh != null)
+                {
+                    galtonMesh.SetActive(activity);
+                }
+                else
+                {
+                    Debug.LogWarning("Couldn't find \"GaltonBoardMesh\" object.");
+                }
+                break;
+        }
+    }
+
+    public void ChangeCollisionMode(int mode)
+    {
+        switch (mode)
+        {
+            case 1:
+                ChangeCollisionMode(CollisionMode.AABB);
+                break;
+            case 2:
+                ChangeCollisionMode(CollisionMode.OBB);
+                break;
+            case 3:
+                ChangeCollisionMode(CollisionMode.MESH);
+                break;
+        }
+    }
+
+    private void ChangeCollisionMode(CollisionMode mode)
+    {
+        this.mode = mode;
+
+        ResetSimulation();
+
+        switch (mode)
+        {
+            case CollisionMode.AABB:
+                ChangeActivityOfGaltonBoard(CollisionMode.AABB, true);
+                break;
+            case CollisionMode.OBB:
+                ChangeActivityOfGaltonBoard(CollisionMode.OBB, true);
+                break;
+            case CollisionMode.MESH:
+                ChangeActivityOfGaltonBoard(CollisionMode.MESH, true);
+                break;
+        }
+    }
+
+    private void ResetSimulation()
+    {
+        ChangeActivityOfGaltonBoard(CollisionMode.AABB, false);
+        ChangeActivityOfGaltonBoard(CollisionMode.OBB, false);
+        ChangeActivityOfGaltonBoard(CollisionMode.MESH, false);
+
+        DestroyAllObjectsWithTag("BallAABB");
+        DestroyAllObjectsWithTag("BallOBB");
+        DestroyAllObjectsWithTag("BallMesh");
+        
+        ballsList = new List<GameObject>();
+        ballsCount = new int[11];
+        Time.timeScale = 3.0f;
+
+        ballCountUIText.text = "Liczba piłeczek: 0";
+    }
+
+    private void DestroyAllObjectsWithTag(string tag)
+    {
+        var gameObjects = GameObject.FindGameObjectsWithTag(tag);
+
+        for (var i = 0; i < gameObjects.Length; i++)
+        {
+            Destroy(gameObjects[i]);
+        }
+    }
+
+    public void IncreaseTimeScale()
+    {
+        Time.timeScale += 0.1f;
+        timeScaleUIText.text = "pręd: " + Time.timeScale.ToString("0.00");
+    }
+
+    public void DecreaseTimeScale()
+    {
+        Time.timeScale -= 0.1f;
+        timeScaleUIText.text = "pręd: " + Time.timeScale.ToString("0.00");
+    }
+
+    public void SaveResults()
+    {
+        foreach (var ball in ballsList)
+        {
+            for (int i = 1; i < 12; ++i)
+            {
+                if (ball.transform.position.y < 0 &&
+                    ball.transform.position.x > GameObject.Find("Border" + (i).ToString()).transform.position.x &&
+                    ball.transform.position.x < GameObject.Find("Border" + (i + 1).ToString()).transform.position.x)
+                {
+                    ++ballsCount[i - 1];
+                    break;
+                }
+            }
+        }
+
+        for (int i = 0; i < ballsCount.Length; ++i)
+        {
+            Debug.Log("W nr " + i + " jest " + ballsCount[i] + " piłeczek.");
+        }
+
+        int n = ballsList.Count;
+        string results = "";
+        for (int i = 0; i < ballsCount.Length; ++i)
+        {
+            results += i.ToString() + " - " + ballsCount[i].ToString() + "\n";
+        }
+
+        File.WriteAllText(mode.ToString() + ".txt", results);
+    }
+}
