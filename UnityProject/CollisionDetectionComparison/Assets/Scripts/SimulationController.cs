@@ -37,6 +37,11 @@ public class SimulationController : MonoBehaviour
 
     private CollisionMode mode;
 
+    public void ExitApplication()
+    {
+        Application.Quit();
+    }
+
     // Start is called before the first frame update
     void Start()
     {
@@ -227,8 +232,11 @@ public class SimulationController : MonoBehaviour
 
     public void DecreaseTimeScale()
     {
-        Time.timeScale -= 0.1f;
-        timeScaleUIText.text = "pręd: " + Time.timeScale.ToString("0.00");
+        if (Time.timeScale > 0.1f)
+        {
+            Time.timeScale -= 0.1f;
+            timeScaleUIText.text = "pręd: " + Time.timeScale.ToString("0.00");
+        }
     }
 
     public void SaveResults()
