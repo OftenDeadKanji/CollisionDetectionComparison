@@ -27,6 +27,14 @@ public class SimulationController : MonoBehaviour
     private float keyCooldown = 0.2f;
     private float keyCDPassedTime = 0.0f;
 
+    private int frameNumber = 0;
+    private const int framesHistoryLength = 10;
+
+    private float[] lastXFpsValue = new float[framesHistoryLength];
+    private float fps = 0.0f;
+    private float[] lastXMsValue = new float[framesHistoryLength];
+    private float ms = 0.0f;
+
     public enum CollisionMode
     {
         NONE,
@@ -54,8 +62,30 @@ public class SimulationController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        fpsUIText.text = "FPS: " + ((int)(1.0f / Time.deltaTime)).ToString();
-        msUIText.text = "ms: " + (Time.deltaTime * 1000).ToString("0.00");
+        lastXMsValue[frameNumber] = Time.deltaTime * 1000;
+        lastXFpsValue[frameNumber] = 1.0f / Time.deltaTime;
+        
+        if (++frameNumber == framesHistoryLength)
+        {
+            float fpsAvg = 0.0f;
+            for (int i = 0;i< framesHistoryLength;++i)
+            {
+                fpsAvg += lastXFpsValue[i];
+            }
+            fps = fpsAvg / framesHistoryLength;
+
+            float msAvg = 0.0f;
+            for (int i = 0; i < framesHistoryLength; ++i)
+            {
+                msAvg += lastXMsValue[i];
+            }
+            ms = msAvg / framesHistoryLength;
+
+            frameNumber = 0;
+        }
+
+        fpsUIText.text = "FPS: " + ((int)fps).ToString();
+        msUIText.text = "ms: " + ms.ToString("0.00");
 
         keyCDPassedTime += Time.deltaTime;
         if (keyCDPassedTime >= keyCooldown)
@@ -212,6 +242,7 @@ public class SimulationController : MonoBehaviour
         Time.timeScale = 3.0f;
 
         ballCountUIText.text = "Liczba piłeczek: 0";
+        timeScaleUIText.text = "pręd: 3.00";
     }
 
     private void DestroyAllObjectsWithTag(string tag)
