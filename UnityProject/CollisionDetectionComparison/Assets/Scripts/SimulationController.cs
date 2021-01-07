@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,6 +7,9 @@ using UnityEngine.UI;
 public class SimulationController : MonoBehaviour
 {
     [Header("Prefabs")]
+    public GameObject galtonSphere;
+    public GameObject ballSpherePrefab;
+    [Space(10)]
     public GameObject galtonAABB;
     public GameObject ballAABBPrefab;
     [Space(10)]
@@ -29,6 +33,8 @@ public class SimulationController : MonoBehaviour
 
     private int frameNumber = 0;
     private const int framesHistoryLength = 10;
+    
+    private List<Tuple<int, float, float>> history;
 
     private float[] lastXFpsValue = new float[framesHistoryLength];
     private float fps = 0.0f;
@@ -38,6 +44,7 @@ public class SimulationController : MonoBehaviour
     public enum CollisionMode
     {
         NONE,
+        SPHERE,
         MESH,
         AABB,
         OBB
@@ -57,6 +64,8 @@ public class SimulationController : MonoBehaviour
         ballsCount = new int[11];
         Time.timeScale = 3.0f;
         timeScaleUIText.text = "pręd: " + Time.timeScale.ToString("0.00");
+
+        history = new List<Tuple<int, float, float>>();
     }
 
     // Update is called once per frame
@@ -81,9 +90,13 @@ public class SimulationController : MonoBehaviour
             }
             ms = msAvg / framesHistoryLength;
 
+            history.Add(Tuple.Create(ballsList.Count, fps, ms));
+
             frameNumber = 0;
         }
 
+        
+        
         fpsUIText.text = "FPS: " + ((int)fps).ToString();
         msUIText.text = "ms: " + ms.ToString("0.00");
 
@@ -111,6 +124,10 @@ public class SimulationController : MonoBehaviour
             {
                 ChangeCollisionMode(CollisionMode.MESH);
             }
+            else if (Input.GetKey(KeyCode.Alpha4))
+            {
+                ChangeCollisionMode(CollisionMode.SPHERE);
+            }
             else if (Input.GetKey(KeyCode.KeypadPlus))
             {
                 IncreaseTimeScale();
@@ -127,6 +144,9 @@ public class SimulationController : MonoBehaviour
         GameObject ballPrefab = null;
         switch (mode)
         {
+            case CollisionMode.SPHERE:
+                ballPrefab = ballSpherePrefab;
+                break;
             case CollisionMode.AABB:
                 ballPrefab = ballAABBPrefab;
                 break;
@@ -139,11 +159,12 @@ public class SimulationController : MonoBehaviour
         }
         if (ballPrefab != null)
         {
+
             for (int i = 0; i < 4; ++i)
             {
                 for (int j = 0; j < 4; ++j)
                 {
-                    ballsList.Add(Instantiate(ballPrefab, new Vector3(-2.5f + i * (4.7f / 3.0f), 5.0f + j * -(1.0f / 3.0f), 0.073f), Quaternion.identity));
+                    ballsList.Add(Instantiate(ballPrefab, new Vector3(-2.5f + UnityEngine.Random.Range(0.0f, 4.7f), 5.0f - UnityEngine.Random.Range(0.0f, 1.0f), 0.073f), Quaternion.identity));
                 }
             }
             ballCountUIText.text = "Liczba piłeczek: " + ballsList.Count.ToString();
@@ -158,6 +179,16 @@ public class SimulationController : MonoBehaviour
     {
         switch (mode)
         {
+            case CollisionMode.SPHERE:
+                if (galtonSphere != null)
+                {
+                    galtonSphere.SetActive(activity);
+                }
+                else
+                {
+                    Debug.LogWarning("Couldn't find \"GaltonBoardSphere\" object.");
+                }
+                break;
             case CollisionMode.AABB:
                 if (galtonAABB != null)
                 {
@@ -196,12 +227,15 @@ public class SimulationController : MonoBehaviour
         switch (mode)
         {
             case 1:
-                ChangeCollisionMode(CollisionMode.AABB);
+                ChangeCollisionMode(CollisionMode.SPHERE);
                 break;
             case 2:
-                ChangeCollisionMode(CollisionMode.OBB);
+                ChangeCollisionMode(CollisionMode.AABB);
                 break;
             case 3:
+                ChangeCollisionMode(CollisionMode.OBB);
+                break;
+            case 4:
                 ChangeCollisionMode(CollisionMode.MESH);
                 break;
         }
@@ -215,6 +249,9 @@ public class SimulationController : MonoBehaviour
 
         switch (mode)
         {
+            case CollisionMode.SPHERE:
+                ChangeActivityOfGaltonBoard(CollisionMode.SPHERE, true);
+                break;
             case CollisionMode.AABB:
                 ChangeActivityOfGaltonBoard(CollisionMode.AABB, true);
                 break;
@@ -229,10 +266,12 @@ public class SimulationController : MonoBehaviour
 
     private void ResetSimulation()
     {
+        ChangeActivityOfGaltonBoard(CollisionMode.SPHERE, false);
         ChangeActivityOfGaltonBoard(CollisionMode.AABB, false);
         ChangeActivityOfGaltonBoard(CollisionMode.OBB, false);
         ChangeActivityOfGaltonBoard(CollisionMode.MESH, false);
 
+        DestroyAllObjectsWithTag("BallSphere");
         DestroyAllObjectsWithTag("BallAABB");
         DestroyAllObjectsWithTag("BallOBB");
         DestroyAllObjectsWithTag("BallMesh");
@@ -240,6 +279,8 @@ public class SimulationController : MonoBehaviour
         ballsList = new List<GameObject>();
         ballsCount = new int[11];
         Time.timeScale = 3.0f;
+
+        history = new List<Tuple<int, float, float>>();
 
         ballCountUIText.text = "Liczba piłeczek: 0";
         timeScaleUIText.text = "pręd: 3.00";
@@ -272,6 +313,7 @@ public class SimulationController : MonoBehaviour
 
     public void SaveResults()
     {
+        ballsCount = new int[11];
         foreach (var ball in ballsList)
         {
             for (int i = 1; i < 12; ++i)
@@ -297,6 +339,14 @@ public class SimulationController : MonoBehaviour
         {
             results += i.ToString() + " - " + ballsCount[i].ToString() + "\n";
         }
+
+        string historyResult = "";
+        foreach(var hist in history)
+        {
+            historyResult += hist.Item1.ToString() + '\t' + hist.Item2.ToString() + '\t' + hist.Item3.ToString() + '\n';
+        }
+
+        File.WriteAllText("history" + mode.ToString() + ".txt", historyResult);
 
         File.WriteAllText(mode.ToString() + ".txt", results);
     }

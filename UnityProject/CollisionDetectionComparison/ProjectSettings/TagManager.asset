@@ -8,6 +8,7 @@ TagManager:
   - BallAABB
   - BallOBB
   - BallMesh
+  - BallSphere
   layers:
   - Default
   - TransparentFX
